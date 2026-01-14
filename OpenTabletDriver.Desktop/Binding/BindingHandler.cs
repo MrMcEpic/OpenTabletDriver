@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using OpenTabletDriver.Plugin;
 using OpenTabletDriver.Plugin.Attributes;
 using OpenTabletDriver.Plugin.Output;
 using OpenTabletDriver.Plugin.Tablet;
@@ -66,24 +67,59 @@ namespace OpenTabletDriver.Desktop.Binding
                 HandleOutOfRangeReport(tablet, report);
         }
 
+        private readonly HashSet<int> _triedRelativeWheels = [];
+
         private void HandleRelativeWheelReport(TabletReference tabletReference, IRelativeWheelReport relativeWheelReport)
         {
             for (int i = 0; i < relativeWheelReport.AnalogDeltas.Length; i++)
-                Wheels[i].HandleRelativeWheel(tabletReference, relativeWheelReport, relativeWheelReport.AnalogDeltas[i]);
+            {
+                if (Wheels.TryGetValue(i, out var wheelBinding))
+                    wheelBinding.HandleRelativeWheel(tabletReference, relativeWheelReport, relativeWheelReport.AnalogDeltas[i]);
+                else if (_triedRelativeWheels.Add(i))
+                {
+                    Log.Write(nameof(BindingHandler),
+                        $"Tablet '{tablet.Properties.Name}' is missing wheel declarations for wheel '{i}' to handle its wheel bindings",
+                        LogLevel.Warning);
+                }
+            }
         }
+
+        private readonly HashSet<int> _triedAbsoluteWheels = [];
 
         private void HandleAbsoluteWheelReport(TabletReference tabletReference, IAbsoluteWheelReport absoluteWheelReport)
         {
             for (int i = 0; i < absoluteWheelReport.AnalogPositions.Length; i++)
-                Wheels[i].HandleAbsoluteWheel(tabletReference, absoluteWheelReport, absoluteWheelReport.AnalogPositions[i]);
+            {
+                if (Wheels.TryGetValue(i, out var wheelBinding))
+                    wheelBinding.HandleAbsoluteWheel(tabletReference,
+                        absoluteWheelReport,
+                        absoluteWheelReport.AnalogPositions[i]);
+                else if (_triedAbsoluteWheels.Add(i))
+                {
+                    Log.Write(nameof(BindingHandler),
+                        $"Tablet '{tablet.Properties.Name}' is missing wheel declarations for wheel '{i}' to handle its wheel bindings",
+                        LogLevel.Warning);
+                }
+            }
         }
+
+        private readonly HashSet<int> _triedWheelButtons = [];
 
         private void HandleWheelButtonReport(TabletReference tabletReference, IWheelButtonReport wheelButtonReport)
         {
-            for (int iterator = 0; iterator < wheelButtonReport.WheelButtons.Length; iterator++)
+            for (int i = 0; i < wheelButtonReport.WheelButtons.Length; i++)
             {
-                bool[] wheelButton = wheelButtonReport.WheelButtons[iterator];
-                HandleBindingCollection(tabletReference, wheelButtonReport, Wheels[iterator].WheelButtons, wheelButton);
+                if (Wheels.TryGetValue(i, out var wheelBinding))
+                {
+                    bool[] wheelButton = wheelButtonReport.WheelButtons[i];
+                    HandleBindingCollection(tabletReference, wheelButtonReport, wheelBinding.WheelButtons, wheelButton);
+                }
+                else if (_triedWheelButtons.Add(i))
+                {
+                    Log.Write(nameof(BindingHandler),
+                        $"Tablet '{tablet.Properties.Name}' is missing wheel declarations for wheel '{i}' to handle its wheel button bindings",
+                        LogLevel.Warning);
+                }
             }
         }
 
