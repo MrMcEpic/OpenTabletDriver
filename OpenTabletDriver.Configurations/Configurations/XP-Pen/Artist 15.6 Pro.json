@@ -13,7 +13,14 @@
     },
     "AuxiliaryButtons": {
       "ButtonCount": 8
-    }
+    },
+    "Wheels": [
+      {
+        "StepCount": 23,
+        "IsRelative": true,
+        "ButtonCount": 0
+      }
+    ]
   },
   "DigitizerIdentifiers": [
     {
