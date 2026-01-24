@@ -1,5 +1,7 @@
+using System;
 using Eto.Forms;
 using OpenTabletDriver.Desktop.Profiles;
+using OpenTabletDriver.Plugin.Tablet;
 using OpenTabletDriver.UX.Controls.Generic;
 
 namespace OpenTabletDriver.UX.Controls.Bindings
@@ -51,6 +53,7 @@ namespace OpenTabletDriver.UX.Controls.Bindings
                                         {
                                             Minimum = 1,
                                             Maximum = 360,
+                                            SnapToTick = true,
                                         }
                                     }
                                 }
@@ -81,6 +84,7 @@ namespace OpenTabletDriver.UX.Controls.Bindings
                                         {
                                             Minimum = 1,
                                             Maximum = 360,
+                                            SnapToTick = true,
                                         }
                                     }
                                 }
@@ -98,9 +102,23 @@ namespace OpenTabletDriver.UX.Controls.Bindings
                 this.DataContext = delegateBinding.DataValue.WheelBindings.Count > 0
                     ? delegateBinding.DataValue.WheelBindings[wheelIndex]
                     : null;
-
-                // TODO: set slider step size
             };
+
+            int? GetDegreesPerStep(TabletReference x)
+            {
+                if (x == null) return null;
+                var spec = x.Properties.Specifications;
+
+                if (spec.Wheels != null && spec.Wheels.Count >= wheelIndex && spec.Wheels![wheelIndex].StepCount != null)
+                    return (int)(360d / x.Properties.Specifications.Wheels![wheelIndex].StepCount!.Value);
+
+                throw new InvalidOperationException("Provided TabletReference does not define wheel step count for this wheel");
+            }
+
+            clockwiseThreshold.Bind(x => x.StepSize, TabletBinding.Convert(GetDegreesPerStep));
+            counterClockwiseThreshold.Bind(x => x.StepSize, TabletBinding.Convert(GetDegreesPerStep));
+            clockwiseThreshold.Bind(x => x.Minimum, TabletBinding.Convert(GetDegreesPerStep));
+            counterClockwiseThreshold.Bind(x => x.Minimum, TabletBinding.Convert(GetDegreesPerStep));
 
             clockwiseButton.StoreBinding.BindDataContext((WheelBindingSettings wbs) =>
                 wbs.ClockwiseRotation);

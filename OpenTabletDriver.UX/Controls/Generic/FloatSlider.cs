@@ -63,6 +63,18 @@ namespace OpenTabletDriver.UX.Controls
             set => this.slider.MaxValue = value;
         }
 
+        public int StepSize
+        {
+            get => this.slider.TickFrequency;
+            set => this.slider.TickFrequency = value;
+        }
+
+        public bool SnapToTick
+        {
+            get => slider.SnapToTick;
+            set => slider.SnapToTick = value;
+        }
+
         public BindableBinding<FloatSlider, float> ValueBinding
         {
             get
