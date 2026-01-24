@@ -128,6 +128,9 @@ namespace OpenTabletDriver.Desktop.Profiles
             bindingSettings.AddPenButtons(tabletSpecifications);
 
             bindingSettings.MatchSpecifications(tabletSpecifications);
+
+            bindingSettings.SetupWheelDefaults(tabletSpecifications);
+
             return bindingSettings;
         }
 
@@ -182,6 +185,32 @@ namespace OpenTabletDriver.Desktop.Profiles
                 PenButtons.Add(new PluginSettingStore(new AdaptiveBinding(PenAction.BarrelButton2)));
             if (buttonCount >= 3)
                 PenButtons.Add(new PluginSettingStore(new AdaptiveBinding(PenAction.BarrelButton3)));
+        }
+
+        private void SetupWheelDefaults(TabletSpecifications tabletSpecifications)
+        {
+            if (tabletSpecifications.Wheels == null) return;
+
+            Debug.Assert(WheelBindings.Count == tabletSpecifications.Wheels.Count);
+
+            for (int i = 0; i < tabletSpecifications.Wheels.Count; i++)
+            {
+                var wheelBinding = WheelBindings[i];
+                var wheelSpecification = tabletSpecifications.Wheels[i];
+
+                if (wheelSpecification.StepCount == null)
+                {
+                    Log.Write(nameof(BindingSettings), "Unable to determine wheel step count");
+                    continue;
+                }
+
+                wheelBinding.ClockwiseActivationThreshold =
+                    wheelBinding.CounterClockwiseActivationThreshold = (float)(360d / wheelSpecification.StepCount);
+
+                // TODO: Figure out good default settings for rotations
+                // wheelBinding.ClockwiseRotation = new PluginSettingStore(new KeyBinding { Key = "PageDown" });
+                // wheelBinding.CounterClockwiseRotation = new PluginSettingStore(new KeyBinding { Key = "PageUp" });
+            }
         }
     }
 }
