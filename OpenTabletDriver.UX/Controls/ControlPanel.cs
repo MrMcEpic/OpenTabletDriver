@@ -171,10 +171,6 @@ namespace OpenTabletDriver.UX.Controls
 
         public void OnTabletChanged(TabletReference tablet)
         {
-            penBindingEditor.Tablet = tablet;
-            auxBindingEditor.Tablet = tablet;
-            mouseBindingEditor.Tablet = tablet;
-
             // ensure we have enough wheel binding editors
             int tabletWheels = tablet?.Properties.Specifications.Wheels?.Count ?? 0;
             if (tabletWheels > wheelBindingEditors.Count)
@@ -188,9 +184,6 @@ namespace OpenTabletDriver.UX.Controls
                     tabControl.Pages.Insert(pageIndex, new TabPage(wheelBindingEditor) { Text = $"Wheel {i + 1} Bindings" });
                 }
             }
-
-            foreach (var wheelBindingEditor in wheelBindingEditors.Take(tabletWheels))
-                wheelBindingEditor.Tablet = tablet;
         }
 
         public BindableBinding<ControlPanel, Profile> ProfileBinding
