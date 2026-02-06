@@ -135,7 +135,7 @@ namespace OpenTabletDriver.UX.Controls.Bindings
 
             // set wheel button group visible based on whether there are wheel buttons to assign
             wheelButtonGroup.BindDataContext(x => x.Visible,
-                Binding.Property((WheelBindingSettings wbs) => wbs.WheelButtons).Convert(x => x.Count > 0));
+                Binding.Property((WheelBindingSettings wbs) => wbs.WheelButtons).Convert(x => x is { Count: > 0 }));
         }
 
         private Group wheelButtonGroup;
