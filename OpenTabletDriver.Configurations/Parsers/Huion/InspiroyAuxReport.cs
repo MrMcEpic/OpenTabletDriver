@@ -32,14 +32,11 @@ namespace OpenTabletDriver.Configurations.Parsers.UCLogic
                 report[6].IsBitSet(3)
             };
 
-            WheelButtons = new bool[]
-            {
-                report[5].IsBitSet(4)
-            };
+            WheelButtons = [[report[5].IsBitSet(4)]];
         }
 
         public bool[] AuxButtons { set; get; }
-        public bool[] WheelButtons { set; get; }
+        public bool[][] WheelButtons { set; get; }
         public byte[] Raw { set; get; }
     }
 }
