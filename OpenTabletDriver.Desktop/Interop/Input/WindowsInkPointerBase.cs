@@ -9,8 +9,8 @@ using OpenTabletDriver.Plugin.Platform.Pointer;
 namespace OpenTabletDriver.Desktop.Interop.Input
 {
     /// <summary>
-    /// Shared state machine for the Windows Ink pointer. Subclasses plug in
-    /// <see cref="IAbsolutePointer.SetPosition"/> or
+    /// Shared state machine for the Enhanced (Windows-Ink-backed) pointer.
+    /// Subclasses plug in <see cref="IAbsolutePointer.SetPosition"/> or
     /// <see cref="IRelativePointer.SetPosition"/> and write into
     /// <see cref="_position"/>.
     /// </summary>
@@ -23,7 +23,7 @@ namespace OpenTabletDriver.Desktop.Interop.Input
         IManualEraserHandler,
         IDisposable
     {
-        protected const string LogGroup = "Windows Ink";
+        protected const string LogGroup = "Windows Ink Enhanced";
         private const uint MaxPressure = 1024;
 
         private IntPtr _device = IntPtr.Zero;
@@ -299,7 +299,7 @@ namespace OpenTabletDriver.Desktop.Interop.Input
                 {
                     var err = Marshal.GetLastWin32Error();
                     Log.Write(LogGroup,
-                        $"CreateSyntheticPointerDevice failed (Win32 error {err}). Windows Ink modes require Windows 10 1809 or later.",
+                        $"CreateSyntheticPointerDevice failed (Win32 error {err}). Windows Ink Enhanced modes require Windows 10 1809 or later.",
                         LogLevel.Error);
                     _initErrorLogged = true;
                 }

@@ -9,14 +9,15 @@ using OpenTabletDriver.Plugin.Tablet;
 
 namespace OpenTabletDriver.Desktop.Binding
 {
-    // State binding that toggles or holds the eraser for Windows Ink modes
-    // independently of the pen's physical orientation. Useful for pens that
-    // have no eraser end (or when the user wants a button-driven eraser).
+    // State binding that toggles or holds the eraser for the Windows Ink
+    // Enhanced modes independently of the pen's physical orientation. Useful
+    // for pens without an eraser end (or when the user wants a button-driven
+    // eraser).
     [PluginName(PluginName)]
     [SupportedPlatform(PluginPlatform.Windows)]
     public sealed class WindowsInkEraserBinding : IStateBinding
     {
-        private const string PluginName = "Windows Ink Eraser";
+        private const string PluginName = "Windows Ink Enhanced Eraser";
 
         public static string[] ValidModes { get; } = { "Toggle", "Hold" };
 
@@ -30,7 +31,7 @@ namespace OpenTabletDriver.Desktop.Binding
         {
             if (Handler == null)
                 Log.Write(PluginName,
-                    $"{PluginName} requires a Windows Ink output mode (Absolute or Relative) to be active.",
+                    $"{PluginName} requires a Windows Ink Enhanced output mode (Absolute or Relative) to be active.",
                     LogLevel.Error);
         }
 

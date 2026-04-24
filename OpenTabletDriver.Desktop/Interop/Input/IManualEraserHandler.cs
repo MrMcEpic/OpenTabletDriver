@@ -2,9 +2,10 @@ namespace OpenTabletDriver.Desktop.Interop.Input
 {
     /// <summary>
     /// A handler that lets bindings force the eraser state on or off independently
-    /// of the physical pen orientation. Exposed by pointers that can emit an
-    /// inverted pen pointer (i.e. <see cref="Absolute.WindowsInkAbsolutePointer"/>
-    /// and <see cref="Relative.WindowsInkRelativePointer"/>).
+    /// of the physical pen orientation. Exposed by pointers used by the Windows
+    /// Ink Enhanced output modes (see
+    /// <see cref="Absolute.WindowsInkAbsolutePointer"/> and
+    /// <see cref="Relative.WindowsInkRelativePointer"/>).
     /// </summary>
     public interface IManualEraserHandler
     {
