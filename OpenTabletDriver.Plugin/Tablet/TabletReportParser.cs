@@ -1,8 +1,11 @@
-﻿namespace OpenTabletDriver.Plugin.Tablet
+using System.Diagnostics.CodeAnalysis;
+
+namespace OpenTabletDriver.Plugin.Tablet
 {
-    public class TabletReportParser : IReportParser<IDeviceReport>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+    public class TabletReportParser : IReportParser<ITabletReport>
     {
-        public virtual IDeviceReport Parse(byte[] data)
+        public virtual ITabletReport Parse(byte[] data)
         {
             return new TabletReport(data);
         }

@@ -8,7 +8,7 @@ namespace OpenTabletDriver.Desktop.Reflection
 {
     public class ServiceManager : IServiceManager
     {
-        private readonly IDictionary<Type, Func<object>> services = new Dictionary<Type, Func<object>>();
+        private readonly Dictionary<Type, Func<object>> services = new();
 
         /// <summary>
         /// Adds a retrieval method for a service type.
@@ -22,7 +22,7 @@ namespace OpenTabletDriver.Desktop.Reflection
         }
 
         /// <summary>
-        /// Clears all of the added services.
+        /// Clears all added services.
         /// </summary>
         public virtual void ResetServices()
         {
@@ -31,7 +31,7 @@ namespace OpenTabletDriver.Desktop.Reflection
 
         public object GetService(Type serviceType)
         {
-            return services.ContainsKey(serviceType) ? services[serviceType].Invoke() : null;
+            return services.TryGetValue(serviceType, out var value) ? value.Invoke() : null;
         }
 
         public T GetService<T>() where T : class => GetService(typeof(T)) as T;

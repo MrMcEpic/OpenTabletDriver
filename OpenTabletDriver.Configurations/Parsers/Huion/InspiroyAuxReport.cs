@@ -9,8 +9,8 @@ namespace OpenTabletDriver.Configurations.Parsers.UCLogic
         {
             Raw = report;
 
-            AuxButtons = new bool[]
-            {
+            AuxButtons =
+            [
                 report[4].IsBitSet(0),
                 report[4].IsBitSet(1),
                 report[4].IsBitSet(2),
@@ -29,8 +29,8 @@ namespace OpenTabletDriver.Configurations.Parsers.UCLogic
                 report[6].IsBitSet(0),
                 report[6].IsBitSet(1),
                 report[6].IsBitSet(2),
-                report[6].IsBitSet(3)
-            };
+                report[6].IsBitSet(3),
+            ];
 
             WheelButtons = [[report[5].IsBitSet(4)]];
         }

@@ -1,4 +1,4 @@
-﻿using OpenTabletDriver.Plugin.Tablet;
+using OpenTabletDriver.Plugin.Tablet;
 using OpenTabletDriver.Plugin.Tablet.Wheel;
 
 namespace OpenTabletDriver.Configurations.Parsers.Wacom.IntuosV3
@@ -11,8 +11,8 @@ namespace OpenTabletDriver.Configurations.Parsers.Wacom.IntuosV3
 
             var auxByte = report[1];
             var auxByte2 = report[3];
-            AuxButtons = new bool[]
-            {
+            AuxButtons =
+            [
                 auxByte.IsBitSet(0),
                 auxByte.IsBitSet(1),
                 auxByte.IsBitSet(2),
@@ -23,7 +23,7 @@ namespace OpenTabletDriver.Configurations.Parsers.Wacom.IntuosV3
                 auxByte.IsBitSet(6),
                 auxByte.IsBitSet(7),
                 auxByte2.IsBitSet(1),
-            };
+            ];
 
             // Wheel rotation is a signed 7-bit value in report[4] (left wheel)
             // and report[5] (right wheel)

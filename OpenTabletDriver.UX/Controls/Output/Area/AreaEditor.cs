@@ -6,6 +6,7 @@ using Eto.Drawing;
 using Eto.Forms;
 using OpenTabletDriver.Desktop.Profiles;
 using OpenTabletDriver.Native.Linux.Evdev.Structs;
+using OpenTabletDriver.UX.Controls.Generic;
 using OpenTabletDriver.UX.Controls.Generic.Text;
 using OpenTabletDriver.UX.Controls.Utilities;
 
@@ -170,13 +171,13 @@ namespace OpenTabletDriver.UX.Controls.Output.Area
             float halfWidth = Area.Width / 2;
             float halfHeight = Area.Height / 2;
 
-            return new Vector2[]
-            {
+            return
+            [
                 Vector2.Transform(new Vector2(Area.X - halfWidth, Area.Y - halfHeight), matrix),
                 Vector2.Transform(new Vector2(Area.X - halfWidth, Area.Y + halfHeight), matrix),
                 Vector2.Transform(new Vector2(Area.X + halfWidth, Area.Y + halfHeight), matrix),
                 Vector2.Transform(new Vector2(Area.X + halfWidth, Area.Y - halfHeight), matrix),
-            };
+            ];
         }
 
         public Vector2 GetAreaCenterOffset()
@@ -300,14 +301,6 @@ namespace OpenTabletDriver.UX.Controls.Output.Area
                     break;
                 }
             }
-        }
-
-        protected override void OnLockToUsableAreaChanged()
-        {
-            base.OnLockToUsableAreaChanged();
-
-            if (LockToUsableArea)
-                OnAreaChanged();
         }
     }
 }

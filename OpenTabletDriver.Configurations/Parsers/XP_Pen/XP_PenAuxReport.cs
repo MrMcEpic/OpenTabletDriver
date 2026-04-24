@@ -9,8 +9,8 @@ namespace OpenTabletDriver.Configurations.Parsers.XP_Pen
         {
             Raw = report;
 
-            AuxButtons = new bool[]
-            {
+            AuxButtons =
+            [
                 report[auxIndex].IsBitSet(0),
                 report[auxIndex].IsBitSet(1),
                 report[auxIndex].IsBitSet(2),
@@ -31,7 +31,7 @@ namespace OpenTabletDriver.Configurations.Parsers.XP_Pen
                 report[auxIndex + 2].IsBitSet(1),
                 report[auxIndex + 2].IsBitSet(2),
                 report[auxIndex + 2].IsBitSet(3),
-            };
+            ];
 
             // 0x01 for 1st wheel clockwise, 0x02 for counterclockwise, verified on XP Pen Artist 13.3 Pro V2
             // 0x10 for 2nd wheel clockwise, 0x20 for counterclockwise, verified on XP Pen Artist 22R Pro

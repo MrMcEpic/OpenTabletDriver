@@ -1,4 +1,5 @@
 using Eto.Forms;
+using OpenTabletDriver.UX.Controls.Generic;
 using OpenTabletDriver.UX.Controls.Generic.Text;
 using OpenTabletDriver.UX.Controls.Utilities;
 
@@ -7,7 +8,6 @@ namespace OpenTabletDriver.UX.Controls.Output.Area
     public class RotationAreaEditor : AreaEditor
     {
         public RotationAreaEditor()
-            : base()
         {
             settingsPanel.Items.Add(
                 new StackLayoutItem

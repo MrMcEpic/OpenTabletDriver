@@ -72,7 +72,7 @@ namespace OpenTabletDriver.UX.Controls
 
         private void HandleTabletsChanged(object sender, IEnumerable<TabletReference> tablets)
         {
-            tabletSwitcher.HandleTabletsChanged(sender, tablets.ToImmutableArray());
+            tabletSwitcher.HandleTabletsChanged(sender, [.. tablets]);
         }
 
         private class TabletSwitcher : DropDown
@@ -84,7 +84,7 @@ namespace OpenTabletDriver.UX.Controls
                 this.SelectedIndex = 0;
             }
 
-            private readonly ObservableCollection<Profile> visibleProfiles = new ObservableCollection<Profile>();
+            private readonly ObservableCollection<Profile> visibleProfiles = [];
 
             private ProfileCollection profiles;
             public ProfileCollection Profiles
@@ -104,7 +104,7 @@ namespace OpenTabletDriver.UX.Controls
             {
                 ProfilesChanged?.Invoke(this, EventArgs.Empty);
                 var tablets = await App.Driver.Instance.GetTablets();
-                HandleTabletsChanged(this, tablets.ToImmutableArray());
+                HandleTabletsChanged(this, [.. tablets]);
             }
 
             public BindableBinding<TabletSwitcher, ProfileCollection> ProfilesBinding

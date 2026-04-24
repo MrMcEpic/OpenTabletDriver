@@ -464,7 +464,7 @@ namespace OpenTabletDriver.Console
                 if (!Directory.Exists(tempDir))
                     Directory.CreateDirectory(tempDir);
 
-                using (var fs = File.Create(path))
+                await using (var fs = File.Create(path))
                     Serialization.Serialize(fs, settings);
 
                 var oldHash = GetSHA256(path);
@@ -474,7 +474,7 @@ namespace OpenTabletDriver.Console
 
                 var newHash = GetSHA256(path);
 
-                using (var fs = File.OpenRead(path))
+                await using (var fs = File.OpenRead(path))
                     settings = Serialization.Deserialize<Settings>(fs);
 
                 if (oldHash.Equals(newHash))
@@ -500,8 +500,7 @@ namespace OpenTabletDriver.Console
             if (!await EnsureDaemonReady()) return;
             try
             {
-                var log = await Driver.Instance.GetCurrentLog();
-                var diagnostics = new DiagnosticInfo(log, await Driver.Instance.GetDevices());
+                var diagnostics = await Driver.Instance.GetDiagnosticInfo();
                 await Out.WriteLineAsync(diagnostics.ToString());
             }
             catch (Exception ex)

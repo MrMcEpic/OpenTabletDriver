@@ -164,7 +164,6 @@ namespace OpenTabletDriver
                     catch (Exception ex)
                     {
                         Log.Exception(ex, LogLevel.Warning);
-                        continue;
                     }
                 }
             }
@@ -185,7 +184,7 @@ namespace OpenTabletDriver
                    select device;
         }
 
-        private static bool DeviceMatchesStrings(IDeviceEndpoint device, IDictionary<byte, string>? deviceStrings)
+        private static bool DeviceMatchesStrings(IDeviceEndpoint device, Dictionary<byte, string>? deviceStrings)
         {
             if (deviceStrings == null || deviceStrings.Count == 0)
                 return true;
@@ -260,7 +259,22 @@ namespace OpenTabletDriver
 
         public void Dispose()
         {
-            DisposeDevices(_inputDeviceTrees);
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private bool _isDisposed;
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_isDisposed) return;
+
+            if (disposing)
+            {
+                DisposeDevices(_inputDeviceTrees);
+            }
+
+            _isDisposed = true;
         }
     }
 }

@@ -100,10 +100,10 @@ namespace OpenTabletDriver.UX.Controls.Output
             var tabletAreaEditor = absoluteModeEditor.tabletAreaEditor;
             if (tablet?.Properties?.Specifications?.Digitizer is DigitizerSpecifications digitizer)
             {
-                tabletAreaEditor.AreaBounds = new RectangleF[]
-                {
-                    new RectangleF(0, 0, digitizer.Width, digitizer.Height)
-                };
+                tabletAreaEditor.AreaBounds =
+                [
+                    new RectangleF(0, 0, digitizer.Width, digitizer.Height),
+                ];
             }
             else
             {

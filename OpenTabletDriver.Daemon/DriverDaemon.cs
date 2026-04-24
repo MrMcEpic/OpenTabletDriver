@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using OpenTabletDriver.Desktop;
 using OpenTabletDriver.Desktop.Binding;
 using OpenTabletDriver.Desktop.Contracts;
+using OpenTabletDriver.Desktop.Diagnostics;
 using OpenTabletDriver.Desktop.Interop;
 using OpenTabletDriver.Desktop.Profiles;
 using OpenTabletDriver.Desktop.Reflection;
@@ -100,13 +101,13 @@ namespace OpenTabletDriver.Daemon
                 if (System.Diagnostics.Debugger.IsAttached)
                     return;
 
-                Log.Write(nameof(DriverDaemon), "Sleep detected...", LogLevel.Info);
+                Log.Write(nameof(DriverDaemon), "Sleep detected...");
                 await DetectTablets();
                 await SetSettings(Settings);
             };
         }
 
-        private IEnumerable<string> safeGetProcessDetails(Process[] processes)
+        private static IEnumerable<string> safeGetProcessDetails(Process[] processes)
         {
             foreach (var driverProcess in processes)
             {
@@ -358,6 +359,10 @@ namespace OpenTabletDriver.Daemon
                 appdataDir.Create();
                 Log.Write("Settings", $"Created OpenTabletDriver application data directory: {appdataDir.FullName}");
             }
+            else
+            {
+                Log.Write("Settings", $"Using OpenTabletDriver application data directory: {appdataDir.FullName}", LogLevel.Debug);
+            }
 
             var settingsFile = new FileInfo(AppInfo.Current.SettingsFile);
 
@@ -386,7 +391,7 @@ namespace OpenTabletDriver.Daemon
             }
         }
 
-        private void MoveSettingsFile()
+        private static void MoveSettingsFile()
         {
             var src = AppInfo.Current.SettingsFile;
 
@@ -398,7 +403,7 @@ namespace OpenTabletDriver.Daemon
             File.Move(src, dst);
         }
 
-        private void SetOutputModeElements(InputDeviceTree dev, IOutputMode outputMode, Profile profile, BindingHandler bindingHandler)
+        private static void SetOutputModeElements(InputDeviceTree dev, IOutputMode outputMode, Profile profile, BindingHandler bindingHandler)
         {
             string group = dev.Properties.Name;
 
@@ -419,7 +424,7 @@ namespace OpenTabletDriver.Daemon
             }
         }
 
-        private void SetAbsoluteModeSettings(InputDeviceTree dev, AbsoluteOutputMode absoluteMode, AbsoluteModeSettings settings)
+        private static void SetAbsoluteModeSettings(InputDeviceTree dev, AbsoluteOutputMode absoluteMode, AbsoluteModeSettings settings)
         {
             string group = dev.Properties.Name;
             absoluteMode.Output = settings.Display.Area;
@@ -436,7 +441,7 @@ namespace OpenTabletDriver.Daemon
             Log.Write(group, $"Ignoring reports outside area: {(absoluteMode.AreaLimiting ? "Enabled" : "Disabled")}");
         }
 
-        private void SetRelativeModeSettings(InputDeviceTree dev, RelativeOutputMode relativeMode, RelativeModeSettings settings)
+        private static void SetRelativeModeSettings(InputDeviceTree dev, RelativeOutputMode relativeMode, RelativeModeSettings settings)
         {
             string group = dev.Properties.Name;
             relativeMode.Sensitivity = settings.Sensitivity;
@@ -513,8 +518,11 @@ namespace OpenTabletDriver.Daemon
 
             if (settings.PenButtons != null && settings.PenButtons.Any(b => b?.Path != null))
             {
-                SetBindingHandlerCollectionSettings(bindingServiceProvider, settings.PenButtons, bindingHandler.PenButtons, tabletReference);
+                SetBindingHandlerCollectionSettings(bindingServiceProvider, settings.PenButtons, bindingHandler.PenButtons, tabletReference, settings.EnableDragBindings);
                 Log.Write(group, $"Pen Bindings: " + string.Join(", ", bindingHandler.PenButtons.Select(b => b.Value?.Binding)));
+
+                if (settings.EnableDragBindings)
+                    Log.Write(group, "Pen Bindings are configured as drag-only (requires pen pressure to activate)");
             }
 
             if (settings.AuxButtons != null && settings.AuxButtons.Any(b => b?.Path != null))
@@ -586,34 +594,15 @@ namespace OpenTabletDriver.Daemon
             return bindingHandler;
         }
 
-        private static void SetBindingHandlerCollectionSettings(IServiceManager serviceManager, PluginSettingStoreCollection collection, Dictionary<int, BindingState?> targetDict, TabletReference tabletReference)
+        private static void SetBindingHandlerCollectionSettings(IServiceManager serviceManager, PluginSettingStoreCollection collection, Dictionary<int, BindingState?> targetDict, TabletReference tabletReference, bool bindingRequiresPressure = false)
         {
             for (int index = 0; index < collection.Count; index++)
             {
                 var binding = collection[index]?.Construct<IBinding>(serviceManager, tabletReference);
                 var state = binding == null ? null : new BindingState
                 {
-                    Binding = binding
-                };
-
-                if (!targetDict.TryAdd(index, state))
-                    targetDict[index] = state;
-            }
-        }
-
-        private static void SetBindingHandlerRangeCollectionSettings(IServiceManager serviceManager, PluginSettingStoreCollection collection, float[] ends, Dictionary<int, RangeBindingState?> targetDict, TabletReference tabletReference)
-        {
-            var start = 0;
-
-            for (int index = 0; index < collection.Count; index++)
-            {
-                var binding = collection[index]?.Construct<IBinding>(serviceManager, tabletReference);
-                var end = ends[index];
-                var state = binding == null ? null : new RangeBindingState
-                {
                     Binding = binding,
-                    StartThreshold = start,
-                    EndThreshold = end >= start ? end : start
+                    RequiresPenPressure = bindingRequiresPressure,
                 };
 
                 if (!targetDict.TryAdd(index, state))
@@ -684,6 +673,12 @@ namespace OpenTabletDriver.Daemon
             return Task.FromResult(_logFile.Read());
         }
 
+        public async Task<DiagnosticInfo> GetDiagnosticInfo()
+        {
+            var log = await GetCurrentLog();
+            return new DiagnosticInfo(log, await GetDevices());
+        }
+
         private void PostDebugReport(TabletReference tablet, IDeviceReport report)
         {
             if (report != null && tablet != null)
@@ -708,10 +703,6 @@ namespace OpenTabletDriver.Daemon
             {
                 var update = await _updateInfo.GetUpdate();
                 Updater?.Install(update);
-            }
-            catch
-            {
-                throw;
             }
             finally
             {

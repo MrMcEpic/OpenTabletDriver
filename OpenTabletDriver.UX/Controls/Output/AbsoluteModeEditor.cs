@@ -65,14 +65,27 @@ namespace OpenTabletDriver.UX.Controls.Output
 
             displayWidth = SettingsBinding.Child(c => c.Display.Width);
             displayHeight = SettingsBinding.Child(c => c.Display.Height);
-            tabletWidth = SettingsBinding.Child(c => c.Tablet.Width);
-            tabletHeight = SettingsBinding.Child(c => c.Tablet.Height);
-            tabletWidth.DataValueChanged += HandleTabletAreaConstraint;
-            tabletHeight.DataValueChanged += HandleTabletAreaConstraint;
+            var displayX = SettingsBinding.Child(c => c.Display.X);
+            var displayY = SettingsBinding.Child(c => c.Display.Y);
             displayWidth.DataValueChanged += HandleDisplayAreaConstraint;
             displayHeight.DataValueChanged += HandleDisplayAreaConstraint;
+            displayX.DataValueChanged += HandleDisplayAreaConstraint;
+            displayY.DataValueChanged += HandleDisplayAreaConstraint;
+
+            tabletWidth = SettingsBinding.Child(c => c.Tablet.Width);
+            tabletHeight = SettingsBinding.Child(c => c.Tablet.Height);
+            var tabletX = SettingsBinding.Child(c => c.Tablet.X);
+            var tabletY = SettingsBinding.Child(c => c.Tablet.Y);
+            tabletWidth.DataValueChanged += HandleTabletAreaConstraint;
+            tabletHeight.DataValueChanged += HandleTabletAreaConstraint;
+            tabletX.DataValueChanged += HandleTabletAreaConstraint;
+            tabletY.DataValueChanged += HandleTabletAreaConstraint;
 
             tabletAreaEditor.LockAspectRatioChanged += HookAspectRatioLock;
+
+            tabletAreaEditor.LockToUsableAreaChanged += HandleTabletAreaConstraint;
+            displayAreaEditor.LockToUsableAreaChanged += HandleDisplayAreaConstraint;
+
             HookAspectRatioLock(tabletAreaEditor, EventArgs.Empty);
         }
 
@@ -151,43 +164,6 @@ namespace OpenTabletDriver.UX.Controls.Output
                     tabletWidth.DataValueChanged -= HandleAspectRatioLock;
                     tabletHeight.DataValueChanged -= HandleAspectRatioLock;
                     arLockHooked = false;
-                }
-            }
-        }
-
-        private void HookAreaConstraint(object sender, EventArgs args)
-        {
-            var areaEditor = (AreaEditor)sender;
-            if (areaEditor.LockToUsableArea)
-            {
-                lock (this)
-                {
-                    if (sender == tabletAreaEditor)
-                    {
-                        tabletWidth.DataValueChanged += HandleTabletAreaConstraint;
-                        tabletHeight.DataValueChanged += HandleTabletAreaConstraint;
-                    }
-                    else if (sender == displayAreaEditor)
-                    {
-                        displayWidth.DataValueChanged += HandleDisplayAreaConstraint;
-                        displayHeight.DataValueChanged += HandleDisplayAreaConstraint;
-                    }
-                }
-            }
-            else
-            {
-                lock (this)
-                {
-                    if (sender == tabletAreaEditor)
-                    {
-                        tabletWidth.DataValueChanged -= HandleTabletAreaConstraint;
-                        tabletHeight.DataValueChanged -= HandleTabletAreaConstraint;
-                    }
-                    else if (sender == displayAreaEditor)
-                    {
-                        displayWidth.DataValueChanged -= HandleDisplayAreaConstraint;
-                        displayHeight.DataValueChanged -= HandleDisplayAreaConstraint;
-                    }
                 }
             }
         }
@@ -304,7 +280,6 @@ namespace OpenTabletDriver.UX.Controls.Output
         public class DisplayAreaEditor : AreaEditor
         {
             public DisplayAreaEditor()
-                : base()
             {
                 this.ToolTip = "You can right click the area editor to set the area to a display, adjust alignment, or resize the area.";
             }
@@ -312,6 +287,8 @@ namespace OpenTabletDriver.UX.Controls.Output
             protected override void CreateMenu()
             {
                 base.CreateMenu();
+
+                base.ContextMenu.Items.AddSeparator();
 
                 var subMenu = base.ContextMenu.Items.GetSubmenu("Set to display");
 
@@ -353,7 +330,6 @@ namespace OpenTabletDriver.UX.Controls.Output
         public class TabletAreaEditor : RotationAreaEditor
         {
             public TabletAreaEditor()
-                : base()
             {
                 this.ToolTip = "You can right click the area editor to enable aspect ratio locking, adjust alignment, or resize the area.";
             }

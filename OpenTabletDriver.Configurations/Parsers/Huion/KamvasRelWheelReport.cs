@@ -3,8 +3,7 @@ using OpenTabletDriver.Plugin.Tablet.Wheel;
 
 namespace OpenTabletDriver.Configurations.Parsers.Huion;
 
-// TODO: this should be a struct
-public class KamvasRelWheelReport : IRelativeWheelReport
+public struct KamvasRelWheelReport : IRelativeWheelReport
 {
     public KamvasRelWheelReport(byte[] data)
     {
@@ -21,8 +20,7 @@ public class KamvasRelWheelReport : IRelativeWheelReport
         {
             0x1 => 1,
             0x2 => -1,
-            0 => 0,
-            _ => throw new ArgumentOutOfRangeException(nameof(wheelData)),
+            _ => 0,
         };
 
     public byte[] Raw { get; set; }

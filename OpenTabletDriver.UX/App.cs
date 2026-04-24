@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.ComponentModel;
 using System.IO;
 using System.IO.Pipes;
 using System.Reflection;
@@ -10,6 +11,7 @@ using Eto.Drawing;
 using Eto.Forms;
 using OpenTabletDriver.Desktop;
 using OpenTabletDriver.Desktop.Interop;
+using OpenTabletDriver.Interop;
 using OpenTabletDriver.Plugin;
 using OpenTabletDriver.UX.RPC;
 using OpenTabletDriver.UX.Windows;
@@ -49,7 +51,6 @@ namespace OpenTabletDriver.UX
                 {
                     using var client = new NamedPipeClientStream(".", APPNAME + ".Singleton", PipeDirection.InOut);
                     client.Connect();
-                    return;
                 }
             }
         }
@@ -72,6 +73,7 @@ namespace OpenTabletDriver.UX
             }
 
             mainForm.SkipUpdate = options.SkipUpdate;
+            mainForm.Closing += Current.HandleClosing;
 
             app.NotificationActivated += Current.HandleNotification;
             app.UnhandledException += ShowUnhandledException;
@@ -161,8 +163,8 @@ namespace OpenTabletDriver.UX
         }
 
         private const string APPNAME = "OpenTabletDriver.UX";
-        public readonly static bool EnableTrayIcon = (PluginPlatform.Windows | PluginPlatform.MacOS).HasFlag(DesktopInterop.CurrentPlatform);
-        public readonly static bool EnableDaemonWatchdog = (PluginPlatform.Windows | PluginPlatform.MacOS).HasFlag(DesktopInterop.CurrentPlatform);
+        public readonly static bool EnableTrayIcon = (PluginPlatform.Windows | PluginPlatform.MacOS).HasFlag(SystemInterop.CurrentPlatform);
+        public readonly static bool EnableDaemonWatchdog = (PluginPlatform.Windows | PluginPlatform.MacOS).HasFlag(SystemInterop.CurrentPlatform);
         public static DaemonWatchdog DaemonWatchdog;
 
         public WindowSingleton<StartupGreeterWindow> StartupGreeterWindow { get; } = new WindowSingleton<StartupGreeterWindow>();
@@ -173,15 +175,20 @@ namespace OpenTabletDriver.UX
 
         public WindowSingleton<AboutWindow> AboutWindow { get; } = new WindowSingleton<AboutWindow>();
 
-        public void AddNotificationHandler(string identifier, Action handler)
-        {
-            NotificationHandlers.Add(identifier, handler);
-        }
-
         private void HandleNotification(object sender, NotificationEventArgs e)
         {
-            if (NotificationHandlers.ContainsKey(e.ID))
-                NotificationHandlers[e.ID].Invoke();
+            if (NotificationHandlers.TryGetValue(e.ID, out var handler))
+                handler.Invoke();
+        }
+
+        private void HandleClosing(object sender, CancelEventArgs args)
+        {
+            StartupGreeterWindow.Close();
+            PluginManagerWindow.Close();
+            DebuggerWindow.Close();
+            StringReaderWindow.Close();
+            UpdaterWindow.Close();
+            AboutWindow.Close();
         }
 
         private static void ShowUnhandledException(object sender, Eto.UnhandledExceptionEventArgs e)

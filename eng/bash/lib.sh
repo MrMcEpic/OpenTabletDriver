@@ -105,6 +105,7 @@ declare -g DOG_FOOD="true"
 declare -g BUILD="true"
 declare -g PORTABLE="false"
 declare -g SINGLE_FILE="true"
+declare -g SIGNED="false"
 declare -g SELF_CONTAINED="false"
 
 ### Global Descriptors
@@ -232,6 +233,13 @@ parse_build_args() {
         SELF_CONTAINED="${args[1]}"
         shift_arr "args"
         ;;
+      --signed=*)
+        SIGNED="${args[0]#*=}"
+        ;;
+      --signed)
+        SIGNED="${args[1]}"
+        shift_arr "args"
+        ;;
       *)
         remaining_options+=("${args[0]}")
         ;;
@@ -251,6 +259,7 @@ print_common_arg_help() {
   echo "  --portable <bool>             Whether to build portable binaries (default: ${PORTABLE})"
   echo "  --single-file <bool>          Whether to build single-file binaries (default: ${SINGLE_FILE})"
   echo "  --self-contained <bool>       Whether to build self-contained binaries (default: ${SELF_CONTAINED})"
+  echo "  --signed <bool>               Whether to sign MacOS binaries (default: ${SIGNED})"
   echo "  -h, --help                    Print this help message"
 }
 
@@ -294,7 +303,6 @@ build() {
   local options=(
     --configuration "${CONFIG}"
     --runtime "${NET_RUNTIME}"
-    --self-contained "${SELF_CONTAINED}"
     --output "${OUTPUT}"
     -p:PublishTrimmed=false
     -p:DebugType=embedded
@@ -307,6 +315,14 @@ build() {
   fi
   if [ "${SINGLE_FILE}" == "true" ]; then
     options+=( -p:PublishSingleFile=true )
+  fi
+  if [ "${SIGNED}" == "false" ] && [[ "${NET_RUNTIME}" =~ ^osx-.*$ ]]; then
+    options+=( /p:_EnableMacOSCodeSign=false )
+  fi
+  if [ "${SELF_CONTAINED}" == "true" ]; then
+    options+=( --self-contained "${SELF_CONTAINED}" )
+  else
+    options+=( --no-self-contained )
   fi
 
   if [ ${#extra_options[@]} -gt 0 ]; then

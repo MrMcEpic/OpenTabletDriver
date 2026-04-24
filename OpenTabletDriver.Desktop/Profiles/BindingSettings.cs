@@ -25,65 +25,65 @@ namespace OpenTabletDriver.Desktop.Profiles
 
         private List<WheelBindingSettings> wheelBindings = [];
 
-        private bool disablePressure, disableTilt;
+        private bool disablePressure, disableTilt, enableDragBindings;
 
-        [JsonProperty("TipActivationThreshold")]
+        [JsonProperty(nameof(TipActivationThreshold))]
         public float TipActivationThreshold
         {
             set => this.RaiseAndSetIfChanged(ref this.tP, value);
             get => this.tP;
         }
 
-        [JsonProperty("TipButton")]
+        [JsonProperty(nameof(TipButton))]
         public PluginSettingStore TipButton
         {
             set => this.RaiseAndSetIfChanged(ref this.tipButton, value);
             get => this.tipButton;
         }
 
-        [JsonProperty("EraserActivationThreshold")]
+        [JsonProperty(nameof(EraserActivationThreshold))]
         public float EraserActivationThreshold
         {
             set => this.RaiseAndSetIfChanged(ref this.eP, value);
             get => this.eP;
         }
 
-        [JsonProperty("EraserButton")]
+        [JsonProperty(nameof(EraserButton))]
         public PluginSettingStore EraserButton
         {
             set => this.RaiseAndSetIfChanged(ref this.eraserButton, value);
             get => this.eraserButton;
         }
 
-        [JsonProperty("PenButtons")]
+        [JsonProperty(nameof(PenButtons))]
         public PluginSettingStoreCollection PenButtons
         {
             set => this.RaiseAndSetIfChanged(ref this.penButtons, value);
             get => this.penButtons;
         }
 
-        [JsonProperty("AuxButtons")]
+        [JsonProperty(nameof(AuxButtons))]
         public PluginSettingStoreCollection AuxButtons
         {
             set => this.RaiseAndSetIfChanged(ref this.auxButtons, value);
             get => this.auxButtons;
         }
 
-        [JsonProperty("MouseButtons")]
+        [JsonProperty(nameof(MouseButtons))]
         public PluginSettingStoreCollection MouseButtons
         {
             set => this.RaiseAndSetIfChanged(ref this.mouseButtons, value);
             get => this.mouseButtons;
         }
 
-        [JsonProperty("MouseScrollUp")]
+        [JsonProperty(nameof(MouseScrollUp))]
         public PluginSettingStore MouseScrollUp
         {
             set => this.RaiseAndSetIfChanged(ref this.mouseScrollUp, value);
             get => this.mouseScrollUp;
         }
 
-        [JsonProperty("MouseScrollDown")]
+        [JsonProperty(nameof(MouseScrollDown))]
         public PluginSettingStore MouseScrollDown
         {
             set => this.RaiseAndSetIfChanged(ref this.mouseScrollDown, value);
@@ -97,18 +97,25 @@ namespace OpenTabletDriver.Desktop.Profiles
             get => this.wheelBindings;
         }
 
-        [JsonProperty("DisablePressure")]
+        [JsonProperty(nameof(DisablePressure))]
         public bool DisablePressure
         {
             set => this.RaiseAndSetIfChanged(ref this.disablePressure, value);
             get => this.disablePressure;
         }
 
-        [JsonProperty("DisableTilt")]
+        [JsonProperty(nameof(DisableTilt))]
         public bool DisableTilt
         {
             set => this.RaiseAndSetIfChanged(ref this.disableTilt, value);
             get => this.disableTilt;
+        }
+
+        [JsonProperty(nameof(EnableDragBindings))]
+        public bool EnableDragBindings
+        {
+            set => this.RaiseAndSetIfChanged(ref this.enableDragBindings, value);
+            get => this.enableDragBindings;
         }
 
         public static BindingSettings GetDefaults(TabletSpecifications tabletSpecifications)

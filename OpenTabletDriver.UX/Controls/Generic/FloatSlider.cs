@@ -29,7 +29,7 @@ namespace OpenTabletDriver.UX.Controls
                 Items =
                 {
                     new StackLayoutItem(slider, true),
-                    new StackLayoutItem(nb, false)
+                    new StackLayoutItem(nb)
                 }
             };
 
