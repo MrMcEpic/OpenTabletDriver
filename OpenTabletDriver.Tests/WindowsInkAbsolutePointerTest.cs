@@ -1,3 +1,4 @@
+using OpenTabletDriver.Desktop.Interop.Input;
 using OpenTabletDriver.Desktop.Interop.Input.Absolute;
 using OpenTabletDriver.Native.Windows.Input.Pointer;
 using Xunit;
@@ -10,7 +11,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_FirstHoverFrame_EmitsNewAndUpdate()
         {
-            var (pointer, pen, change) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (pointer, pen, change) = WindowsInkPointerBase.DeriveFlags(
                 isNew: true, inRange: true, prevInRange: false,
                 contact: false, prevContact: false,
                 barrel: false, prevBarrel: false,
@@ -29,7 +30,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_ContactBegin_EmitsDownNotUpdate()
         {
-            var (pointer, _, change) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (pointer, _, change) = WindowsInkPointerBase.DeriveFlags(
                 isNew: false, inRange: true, prevInRange: true,
                 contact: true, prevContact: false,
                 barrel: false, prevBarrel: false,
@@ -47,7 +48,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_ContactContinuing_EmitsUpdate()
         {
-            var (pointer, _, change) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (pointer, _, change) = WindowsInkPointerBase.DeriveFlags(
                 isNew: false, inRange: true, prevInRange: true,
                 contact: true, prevContact: true,
                 barrel: false, prevBarrel: false,
@@ -64,7 +65,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_ContactEnd_EmitsUpNotUpdate()
         {
-            var (pointer, _, change) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (pointer, _, change) = WindowsInkPointerBase.DeriveFlags(
                 isNew: false, inRange: true, prevInRange: true,
                 contact: false, prevContact: true,
                 barrel: false, prevBarrel: false,
@@ -82,7 +83,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_EraserHover_EmitsInvertedOnly()
         {
-            var (_, pen, _) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (_, pen, _) = WindowsInkPointerBase.DeriveFlags(
                 isNew: false, inRange: true, prevInRange: true,
                 contact: false, prevContact: false,
                 barrel: false, prevBarrel: false,
@@ -96,7 +97,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_EraserContact_EmitsInvertedAndEraser()
         {
-            var (_, pen, _) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (_, pen, _) = WindowsInkPointerBase.DeriveFlags(
                 isNew: false, inRange: true, prevInRange: true,
                 contact: true, prevContact: true,
                 barrel: false, prevBarrel: false,
@@ -110,7 +111,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_PenHover_NoPenFlags()
         {
-            var (_, pen, _) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (_, pen, _) = WindowsInkPointerBase.DeriveFlags(
                 isNew: false, inRange: true, prevInRange: true,
                 contact: false, prevContact: false,
                 barrel: false, prevBarrel: false,
@@ -123,7 +124,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_OutOfRange_NoFlags()
         {
-            var (pointer, _, _) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (pointer, _, _) = WindowsInkPointerBase.DeriveFlags(
                 isNew: false, inRange: false, prevInRange: true,
                 contact: false, prevContact: false,
                 barrel: false, prevBarrel: false,
@@ -140,7 +141,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_BarrelBeginWhileHover_EmitsSecondButtonDown()
         {
-            var (pointer, pen, change) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (pointer, pen, change) = WindowsInkPointerBase.DeriveFlags(
                 isNew: false, inRange: true, prevInRange: true,
                 contact: false, prevContact: false,
                 barrel: true, prevBarrel: false,
@@ -157,7 +158,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_BarrelEndDuringContact_EmitsSecondButtonUp()
         {
-            var (pointer, pen, change) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (pointer, pen, change) = WindowsInkPointerBase.DeriveFlags(
                 isNew: false, inRange: true, prevInRange: true,
                 contact: true, prevContact: true,
                 barrel: false, prevBarrel: true,
@@ -175,7 +176,7 @@ namespace OpenTabletDriver.Tests
         [Fact]
         public void DeriveFlags_TipAndBarrelBothChange_TipWins()
         {
-            var (pointer, _, change) = WindowsInkAbsolutePointer.DeriveFlags(
+            var (pointer, _, change) = WindowsInkPointerBase.DeriveFlags(
                 isNew: false, inRange: true, prevInRange: true,
                 contact: true, prevContact: false,
                 barrel: true, prevBarrel: false,

@@ -493,6 +493,9 @@ namespace OpenTabletDriver.Daemon
             if (pointer is IPenActionHandler penActionHandler)
                 bindingServiceProvider.AddService(() => penActionHandler);
 
+            if (pointer is OpenTabletDriver.Desktop.Interop.Input.IManualEraserHandler manualEraserHandler)
+                bindingServiceProvider.AddService(() => manualEraserHandler);
+
             var tip = bindingHandler.Tip = new ThresholdBindingState
             {
                 Binding = settings.TipButton?.Construct<IBinding>(bindingServiceProvider, tabletReference),
