@@ -1,0 +1,15 @@
+using System.Diagnostics.CodeAnalysis;
+
+namespace OpenTabletDriver.Native.Windows.Input.Pointer
+{
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "UnusedMember.Global")]
+    public enum POINTER_INPUT_TYPE : uint
+    {
+        PT_POINTER = 0x00000001,
+        PT_TOUCH = 0x00000002,
+        PT_PEN = 0x00000003,
+        PT_MOUSE = 0x00000004,
+        PT_TOUCHPAD = 0x00000005
+    }
+}
