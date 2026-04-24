@@ -25,7 +25,7 @@ namespace OpenTabletDriver.UX.Windows.Plugins
 
         public static PluginMetadataCollection Repository { private set; get; }
 
-        private static readonly TimeSpan DOWNLOAD_TIMEOUT = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan DOWNLOAD_TIMEOUT = TimeSpan.FromSeconds(30);
         private static readonly Version AppVersion = Assembly.GetEntryAssembly().GetName().Version;
 
         // ReSharper disable once AsyncVoidMethod

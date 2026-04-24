@@ -36,6 +36,8 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
 
         private bool _contact;
         private bool _prevContact;
+        private bool _barrel;
+        private bool _prevBarrel;
         private bool _inRange;
         private bool _prevInRange;
 
@@ -53,19 +55,26 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
 
         public void MouseDown(MouseButton button)
         {
-            if (button == MouseButton.Left)
-                _contact = true;
+            switch (button)
+            {
+                case MouseButton.Left: _contact = true; break;
+                case MouseButton.Right: _barrel = true; break;
+            }
         }
 
         public void MouseUp(MouseButton button)
         {
-            if (button == MouseButton.Left)
-                _contact = false;
+            switch (button)
+            {
+                case MouseButton.Left: _contact = false; break;
+                case MouseButton.Right: _barrel = false; break;
+            }
         }
 
         public void Reset()
         {
             _contact = false;
+            _barrel = false;
             _inRange = false;
             _pressure = 0f;
             _tilt = Vector2.Zero;
@@ -80,15 +89,17 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
                 return;
 
             // Nothing changed and nothing's pending — skip the OS roundtrip
-            if (!_inRange && !_prevInRange && !_contact && !_prevContact && !_isNew)
+            if (!_inRange && !_prevInRange && !_contact && !_prevContact && !_barrel && !_prevBarrel && !_isNew)
                 return;
 
-            var (pointerFlags, penFlags) = DeriveFlags(
+            var (pointerFlags, penFlags, buttonChange) = DeriveFlags(
                 isNew: _isNew,
                 inRange: _inRange,
                 prevInRange: _prevInRange,
                 contact: _contact,
                 prevContact: _prevContact,
+                barrel: _barrel,
+                prevBarrel: _prevBarrel,
                 isEraser: _isEraser);
 
             var pressureScaled = (uint)Math.Clamp(_pressure * MaxPressure, 0, MaxPressure);
@@ -104,7 +115,8 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
                         pointerId = 1,
                         frameId = _frameId++,
                         pointerFlags = pointerFlags,
-                        ptPixelLocation = new POINT((int)_position.X, (int)_position.Y)
+                        ptPixelLocation = new POINT((int)_position.X, (int)_position.Y),
+                        ButtonChangeType = buttonChange
                     },
                     penFlags = penFlags,
                     penMask = PEN_MASK.PRESSURE | PEN_MASK.TILT_X | PEN_MASK.TILT_Y,
@@ -128,18 +140,22 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
 
             _isNew = false;
             _prevContact = _contact;
+            _prevBarrel = _barrel;
             _prevInRange = _inRange;
         }
 
         /// <summary>
-        /// Pure derivation of pointer + pen flags from pointer state. Extracted for testing.
+        /// Pure derivation of pointer flags, pen flags, and button change type from pointer state.
+        /// Extracted for testing.
         /// </summary>
-        public static (POINTER_FLAGS pointerFlags, PEN_FLAGS penFlags) DeriveFlags(
+        public static (POINTER_FLAGS pointerFlags, PEN_FLAGS penFlags, POINTER_BUTTON_CHANGE_TYPE buttonChange) DeriveFlags(
             bool isNew,
             bool inRange,
             bool prevInRange,
             bool contact,
             bool prevContact,
+            bool barrel,
+            bool prevBarrel,
             bool isEraser)
         {
             var pointerFlags = POINTER_FLAGS.PRIMARY;
@@ -153,6 +169,11 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
             if (contact)
                 pointerFlags |= POINTER_FLAGS.INCONTACT | POINTER_FLAGS.FIRSTBUTTON;
 
+            if (barrel)
+                pointerFlags |= POINTER_FLAGS.SECONDBUTTON;
+
+            // Primary (tip) transitions drive DOWN/UP; other frames use UPDATE while in range.
+            // Barrel transitions keep UPDATE and signal via ButtonChangeType.
             if (contact && !prevContact)
                 pointerFlags |= POINTER_FLAGS.DOWN;
             else if (!contact && prevContact)
@@ -167,8 +188,21 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
                 if (contact)
                     penFlags |= PEN_FLAGS.ERASER;
             }
+            if (barrel)
+                penFlags |= PEN_FLAGS.BARREL;
 
-            return (pointerFlags, penFlags);
+            // Tip change takes priority; only one button change per frame.
+            var buttonChange = POINTER_BUTTON_CHANGE_TYPE.NONE;
+            if (contact && !prevContact)
+                buttonChange = POINTER_BUTTON_CHANGE_TYPE.FIRSTBUTTON_DOWN;
+            else if (!contact && prevContact)
+                buttonChange = POINTER_BUTTON_CHANGE_TYPE.FIRSTBUTTON_UP;
+            else if (barrel && !prevBarrel)
+                buttonChange = POINTER_BUTTON_CHANGE_TYPE.SECONDBUTTON_DOWN;
+            else if (!barrel && prevBarrel)
+                buttonChange = POINTER_BUTTON_CHANGE_TYPE.SECONDBUTTON_UP;
+
+            return (pointerFlags, penFlags, buttonChange);
         }
 
         private bool EnsureDevice()
