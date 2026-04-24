@@ -33,6 +33,8 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
         private float _pressure;
         private Vector2 _tilt;
         private bool _isEraser;
+        private bool _prevIsEraser;
+        private bool _eraserTransitionPending;
 
         private bool _contact;
         private bool _prevContact;
@@ -51,7 +53,20 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
 
         public void SetTilt(Vector2 tilt) => _tilt = tilt;
 
-        public void SetEraser(bool isEraser) => _isEraser = isEraser;
+        public void SetEraser(bool isEraser)
+        {
+            if (_isEraser == isEraser)
+                return;
+
+            _isEraser = isEraser;
+            // Windows Ink latches the inverted/non-inverted pointer type for the
+            // duration of a single in-range session. Flipping PEN_FLAG_INVERTED
+            // mid-stream leaves the cursor and tool state cached until the pointer
+            // goes out of range and back in. Queue an explicit out-of-range frame
+            // (with the OLD eraser state) so the next Flush can tear down the old
+            // pointer before establishing the new one.
+            _eraserTransitionPending = true;
+        }
 
         public void MouseDown(MouseButton button)
         {
@@ -87,6 +102,12 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
 
             if (!EnsureDevice())
                 return;
+
+            if (_eraserTransitionPending)
+            {
+                EmitEraserTransition();
+                _eraserTransitionPending = false;
+            }
 
             // Nothing changed and nothing's pending — skip the OS roundtrip
             if (!_inRange && !_prevInRange && !_contact && !_prevContact && !_barrel && !_prevBarrel && !_isNew)
@@ -142,6 +163,49 @@ namespace OpenTabletDriver.Desktop.Interop.Input.Absolute
             _prevContact = _contact;
             _prevBarrel = _barrel;
             _prevInRange = _inRange;
+            _prevIsEraser = _isEraser;
+        }
+
+        /// <summary>
+        /// Emit a synthetic out-of-range frame using the OLD eraser state so
+        /// Windows Ink tears down the pointer, then reset our state so the next
+        /// regular Flush enters as a fresh in-range pointer with the new flags.
+        /// </summary>
+        private void EmitEraserTransition()
+        {
+            // Only needed if Windows Ink thinks a pointer is still in range.
+            if (_prevInRange)
+            {
+                var transition = new POINTER_TYPE_INFO
+                {
+                    type = POINTER_INPUT_TYPE.PT_PEN,
+                    penInfo = new POINTER_PEN_INFO
+                    {
+                        pointerInfo = new POINTER_INFO
+                        {
+                            pointerType = POINTER_INPUT_TYPE.PT_PEN,
+                            pointerId = 1,
+                            frameId = _frameId++,
+                            // UPDATE alone (no INRANGE, no INCONTACT) ends the session.
+                            pointerFlags = POINTER_FLAGS.PRIMARY | POINTER_FLAGS.UPDATE,
+                            ptPixelLocation = new POINT((int)_position.X, (int)_position.Y)
+                        },
+                        // Preserve the OLD inverted state on the teardown frame so
+                        // Ink apps see a clean end-of-eraser or end-of-pen session.
+                        penFlags = _prevIsEraser ? PEN_FLAGS.INVERTED : PEN_FLAGS.NONE,
+                        penMask = PEN_MASK.PRESSURE | PEN_MASK.TILT_X | PEN_MASK.TILT_Y
+                    }
+                };
+
+                Pointer.InjectSyntheticPointerInput(_device, ref transition, 1);
+            }
+
+            // Force the next real frame to re-enter as a new pointer session so
+            // Windows picks up the new inverted state.
+            _prevInRange = false;
+            _prevContact = false;
+            _prevBarrel = false;
+            _isNew = true;
         }
 
         /// <summary>
