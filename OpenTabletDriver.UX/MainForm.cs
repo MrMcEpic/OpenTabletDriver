@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -10,7 +11,6 @@ using Eto.Drawing;
 using Eto.Forms;
 using Newtonsoft.Json.Linq;
 using OpenTabletDriver.Desktop;
-using OpenTabletDriver.Desktop.Diagnostics;
 using OpenTabletDriver.Desktop.Interop;
 using OpenTabletDriver.Desktop.Reflection;
 using OpenTabletDriver.Interop;
@@ -32,14 +32,12 @@ namespace OpenTabletDriver.UX
             InitializePlatform();
 
             SetTitle();
-            Menu = ConstructLimitedMenu();
+            base.Menu = ConstructLimitedMenu();
+            fullMenu = ConstructMenu();
 
-            base.Content = placeholder = new Placeholder
-            {
-                Text = "Connecting to OpenTabletDriver Daemon..."
-            };
+            base.Content = placeholder;
 
-            trayIcon?.Indicator?.Show();
+            trayIcon?.Indicator.Show();
 
             saveButton = new Button(async (s, e) => await SaveSettings())
             {
@@ -108,9 +106,13 @@ namespace OpenTabletDriver.UX
         private const int DEFAULT_CLIENT_WIDTH = 960;
         private const int DEFAULT_CLIENT_HEIGHT = 760;
 
-        private MenuBar menu;
-        private Placeholder placeholder;
-        private TrayIcon trayIcon;
+        private readonly MenuBar fullMenu;
+        private readonly Placeholder placeholder = new()
+        {
+            Text = "Connecting to OpenTabletDriver Daemon...",
+        };
+
+        private TrayIcon? trayIcon;
 
         public bool SilenceDaemonShutdown { get; set; }
         public bool SkipUpdate { get; set; }
@@ -269,14 +271,24 @@ namespace OpenTabletDriver.UX
             var savePreset = new Command { MenuText = "Save as preset..." };
             savePreset.Executed += async (sender, e) => await SavePresetDialog();
 
+            var openPresetsDirectory = new Command { MenuText = "Open presets directory..." };
+            openPresetsDirectory.Executed += async (sender, e) => DesktopInterop.OpenFolder(AppInfo.Current.PresetDirectory);
+
             var detectTablet = new Command { MenuText = "Detect tablet", Shortcut = Application.Instance.CommonModifier | Keys.D };
-            detectTablet.Executed += async (sender, e) => await DetectTablet();
+            detectTablet.Executed += async (sender, e) =>
+            {
+                AppInfo.Current.ConfigurationDirectory = null; // force recheck on next access
+                await DetectTablet();
+            };
 
             var showTabletDebugger = new Command { MenuText = "Tablet debugger..." };
             showTabletDebugger.Executed += (sender, e) => App.Current.DebuggerWindow.Show();
 
             var deviceStringReader = new Command { MenuText = "Device string reader..." };
             deviceStringReader.Executed += (sender, e) => App.Current.StringReaderWindow.Show();
+
+            var deviceInitSender = new Command { MenuText = "Device init sender..." };
+            deviceInitSender.Executed += (sender, e) => App.Current.InitSenderWindow.Show();
 
             var pluginManager = new Command { MenuText = "Open Plugin Manager..." };
             pluginManager.Executed += (sender, e) => App.Current.PluginManagerWindow.Show();
@@ -312,8 +324,9 @@ namespace OpenTabletDriver.UX
                             resetSettings,
                             applySettings,
                             new SeparatorMenuItem(),
-                            refreshPresets,
                             savePreset,
+                            refreshPresets,
+                            openPresetsDirectory,
                             new ButtonMenuItem
                             {
                                 Text = "Presets",
@@ -337,6 +350,7 @@ namespace OpenTabletDriver.UX
                             detectTablet,
                             showTabletDebugger,
                             deviceStringReader,
+                            deviceInitSender,
                         }
                     },
                     // Plugins submenu
@@ -381,7 +395,7 @@ namespace OpenTabletDriver.UX
             return menuBar;
         }
 
-        private void SetTitle(IEnumerable<TabletReference> tablets = null)
+        private void SetTitle(IEnumerable<TabletReference>? tablets = null)
         {
             string prefix = $"OpenTabletDriver v{App.Version}";
             string affix = string.Empty;
@@ -399,14 +413,15 @@ namespace OpenTabletDriver.UX
         }
 
         // ReSharper disable once AsyncVoidMethod
-        private void HandleDaemonConnected(object sender, EventArgs e) => Application.Instance.AsyncInvoke(async void () =>
+        private void HandleDaemonConnected(object? sender, EventArgs e) => Application.Instance.AsyncInvoke(async void () =>
         {
+            Debug.Assert(App.Driver.IsConnected);
             // Hook events after the instance is (re)instantiated
             Log.Output += LogToDriver;
             App.Driver.TabletsChanged += (sender, tablet) => SetTitle(tablet);
 
             // Load full menu
-            this.Menu = ConstructMenu();
+            this.Menu = fullMenu;
 
             // Load the application information from the daemon
             AppInfo.Current = await App.Driver.Instance.GetApplicationInfo();
@@ -426,7 +441,6 @@ namespace OpenTabletDriver.UX
             App.Driver.Resynchronize += async (sender, e) => await SyncSettings();
 
             // Set window content
-            base.Menu = menu ??= ConstructMenu();
             base.Content = new TabletSwitcherPanel
             {
                 CommandsControl = new StackLayout
@@ -448,17 +462,21 @@ namespace OpenTabletDriver.UX
             // Update title to new instance
             if (await App.Driver.Instance.GetTablets() is IEnumerable<TabletReference> tablets)
                 SetTitle(tablets);
+
+            // Having a mismatch between the version of the daemon and the application will cause issues
+            MatchDaemonVersion();
         });
 
         private Button saveButton;
         private Button applyButton;
 
-        private async void LogToDriver(object sender, LogMessage message)
+        private static async void LogToDriver(object? sender, LogMessage message)
         {
-            if (App.Driver.IsConnected) await App.Driver.Instance?.WriteMessage(message);
+            if (App.Driver.IsConnected)
+                await App.Driver.Instance.WriteMessage(message);
         }
 
-        private void HandleDaemonDisconnected(object sender, EventArgs e)
+        private void HandleDaemonDisconnected(object? sender, EventArgs e)
         {
             Log.Output -= LogToDriver;
             if (SilenceDaemonShutdown)
@@ -469,6 +487,7 @@ namespace OpenTabletDriver.UX
             {
                 base.Content = placeholder;
                 base.Menu = null;
+                SetTitle(); // reset title to avoid last connected tablets from showing up
 
                 Application.Instance.InvokeAsync(ConnectToDaemon).ConfigureAwait(false);
             });
@@ -476,8 +495,9 @@ namespace OpenTabletDriver.UX
 
         private static async Task ResetSettings()
         {
+            Debug.Assert(App.Driver.IsConnected);
             await App.Driver.Instance.ResetSettings();
-            App.Current.Settings = await App.Driver.Instance.GetSettings();
+            await SyncSettings();
         }
 
         private static async Task ResetSettingsDialog()
@@ -488,6 +508,7 @@ namespace OpenTabletDriver.UX
 
         private static async Task SyncSettings()
         {
+            Debug.Assert(App.Driver.IsConnected);
             App.Current.Settings = await App.Driver.Instance.GetSettings();
         }
 
@@ -509,7 +530,7 @@ namespace OpenTabletDriver.UX
                         if (Settings.TryDeserialize(file, out var settings))
                         {
                             App.Current.Settings = settings;
-                            await App.Driver.Instance.SetSettings(settings);
+                            await App.Driver.Instance!.SetSettings(settings);
                         }
                         else
                         {
@@ -550,9 +571,11 @@ namespace OpenTabletDriver.UX
         {
             DisableApplySaveButtons();
 
+            Debug.Assert(App.Driver.IsConnected, "Save should be disabled when no driver is connected");
+
             if (App.Current.Settings is Settings settings)
             {
-                if (settings.Profiles.Any(p => p.AbsoluteModeSettings.Tablet.Width + p.AbsoluteModeSettings.Tablet.Height == 0))
+                if (settings.Profiles.Any(p => p.AbsoluteModeSettings?.Tablet.Width + p.AbsoluteModeSettings?.Tablet.Height == 0))
                 {
                     var result = MessageBox.Show(
                         "Warning: Your tablet area is invalid. Saving this configuration may cause problems." + Environment.NewLine +
@@ -598,6 +621,8 @@ namespace OpenTabletDriver.UX
         {
             DisableApplySaveButtons(false);
 
+            Debug.Assert(App.Driver.IsConnected, "Apply should be disabled when no driver is connected");
+
             try
             {
                 if (App.Current.Settings is Settings settings)
@@ -605,9 +630,9 @@ namespace OpenTabletDriver.UX
             }
             catch (StreamJsonRpc.RemoteInvocationException riex) when (riex.ErrorData is JObject err)
             {
-                var type = (string)err["type"];
-                var message = (string)err["message"];
-                var stack = (string)err["stack"];
+                var type = (string)err["type"]!;
+                var message = (string)err["message"]!;
+                var stack = (string)err["stack"]!;
                 var logMessage = new LogMessage
                 {
                     Group = type,
@@ -629,7 +654,7 @@ namespace OpenTabletDriver.UX
 
             // Update File submenu
             var presets = AppInfo.PresetManager.GetPresets();
-            var presetsMenu = menu.Items.GetSubmenu("&File").Items.GetSubmenu("Presets") as ButtonMenuItem;
+            var presetsMenu = fullMenu.Items.GetSubmenu("&File").Items.GetSubmenu("Presets") as ButtonMenuItem;
             presetsMenu.Items.Clear();
 
             if (presets.Count != 0)
@@ -681,10 +706,16 @@ namespace OpenTabletDriver.UX
             }
         }
 
-        public static void PresetButtonHandler(object sender, EventArgs e)
+        public static void PresetButtonHandler(object? sender, EventArgs e)
         {
-            var presetName = (sender as ButtonMenuItem).Text;
+            var buttonMenuItem = sender as ButtonMenuItem;
+            Debug.Assert(buttonMenuItem != null, "Invalid sender");
+            Debug.Assert(App.Driver.IsConnected, "Preset buttons should not be available when daemon isn't connected");
+
+            var presetName = buttonMenuItem.Text;
             var preset = AppInfo.PresetManager.FindPreset(presetName);
+            Debug.Assert(preset != null, "It should be impossible to select a preset that doesn't exist");
+
             App.Current.Settings = preset.Settings;
             App.Driver.Instance.SetSettings(App.Current.Settings);
             Log.Write("Settings", $"Applied preset '{preset.Name}'");
@@ -692,6 +723,7 @@ namespace OpenTabletDriver.UX
 
         private static async Task DetectTablet()
         {
+            Debug.Assert(App.Driver.IsConnected, "It should not be possible to request tablet detection when daemon isn't connected");
             await App.Driver.Instance.DetectTablets();
             await App.Driver.Instance.SetSettings(await App.Driver.Instance.GetSettings());
         }
@@ -700,6 +732,8 @@ namespace OpenTabletDriver.UX
 
         private async Task ExportDiagnostics()
         {
+            Debug.Assert(App.Driver.IsConnected, "It should not be possible to export diagnostics without a connected daemon");
+
             try
             {
                 var diagnosticDump = await App.Driver.Instance.GetDiagnosticInfo();
@@ -740,10 +774,11 @@ namespace OpenTabletDriver.UX
         }
         private static async Task ExportDiagnosticsToClipboard()
         {
+            Debug.Assert(App.Driver.IsConnected, "It should not be possible to export diagnostics without a connected daemon");
+
             try
             {
-                var log = await App.Driver.Instance.GetCurrentLog();
-                var diagnosticDump = new DiagnosticInfo(log, await App.Driver.Instance.GetDevices());
+                var diagnosticDump = await App.Driver.Instance.GetDiagnosticInfo();
 
                 Clipboard.Instance.Clear();
                 Clipboard.Instance.Text = diagnosticDump.ToString();
@@ -754,6 +789,28 @@ namespace OpenTabletDriver.UX
                 ex.ShowMessageBox();
             }
         }
+
+        private static void MatchDaemonVersion()
+        {
+            Debug.Assert(App.Driver.IsConnected, "It should not be possible to fetch the daemon version without a connected daemon");
+
+            var daemonVersionString = AppInfo.Current.Version?.ToString() ?? "Outdated";
+            var versionMatch = AppInfo.Current.Version != null && AppInfo.Current.Version == App.AssemblyVersion;
+
+            if (versionMatch == false)
+            {
+                var specificsTip = "You may need to restart the daemon.";
+
+                if (App.DaemonWatchdog != null || App.AssemblyVersion < AppInfo.Current.Version)
+                    specificsTip = "You may need to restart the UX.";
+                else if (OperatingSystem.IsLinux())
+                    specificsTip = "You may need to restart the user service or edit symlinks.";
+
+                Log.WriteNotify("UX", $"Daemon version ({daemonVersionString}) does not match the UX version ({App.AssemblyVersion})." +
+                                        Environment.NewLine + specificsTip, LogLevel.Warning);
+            }
+        }
+
         private static void CheckForUpdates()
         {
             // ReSharper disable once AsyncVoidMethod

@@ -8,9 +8,9 @@ using IBinding = OpenTabletDriver.Plugin.IBinding;
 
 namespace OpenTabletDriver.UX.Windows.Bindings
 {
-    public class AdvancedBindingEditorDialog : Dialog<PluginSettingStore>
+    public class AdvancedBindingEditorDialog : Dialog<PluginSettingStore?>
     {
-        public AdvancedBindingEditorDialog(PluginSettingStore currentBinding = null)
+        public AdvancedBindingEditorDialog(PluginSettingStore? currentBinding = null)
         {
             Title = "Advanced Binding Editor";
             Result = currentBinding;
@@ -19,24 +19,25 @@ namespace OpenTabletDriver.UX.Windows.Bindings
             this.Content = new StackLayout
             {
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                Width = 500,
-                Height = 450,
                 Items =
                 {
-                    new StackLayoutItem
+                    new Group
                     {
-                        Expand = true,
-                        Control = new StackLayout
+                        Text = "Type",
+                        Content = bindingTypeDropDown = new TypeDropDown<IBinding>()
+                    },
+                    new Scrollable
+                    {
+                        Padding = 5,
+                        Border = BorderType.None,
+                        Size = new Eto.Drawing.Size(500, 350),
+                        Content = new StackLayout
                         {
                             HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                            Width = 1, // forces HorizontalAlignment.Stretch to start at 1 instead of the default size which eliminates the Scrollable's horizontal scrollbar
                             Items =
                             {
-                                new Group
-                                {
-                                    Text = "Type",
-                                    Content = bindingTypeDropDown = new TypeDropDown<IBinding>()
-                                },
-                                settingStoreEditor
+                                settingStoreEditor,
                             }
                         }
                     },
@@ -44,6 +45,7 @@ namespace OpenTabletDriver.UX.Windows.Bindings
                     {
                         Control = new StackLayout
                         {
+                            Padding = 5,
                             Orientation = Orientation.Horizontal,
                             Spacing = 5,
                             Items =
@@ -70,7 +72,7 @@ namespace OpenTabletDriver.UX.Windows.Bindings
                 }
             };
 
-            bindingTypeDropDown.SelectedItemBinding.Convert(t => new PluginSettingStore(t)).Bind(settingStoreEditor.StoreBinding);
+            bindingTypeDropDown.SelectedItemBinding.Convert(t => new PluginSettingStore(t)).Bind(settingStoreEditor.StoreBinding!);
             bindingTypeDropDown.SelectedItem = currentBinding?.GetTypeInfo();
             settingStoreEditor.Store = currentBinding;
         }
@@ -78,12 +80,12 @@ namespace OpenTabletDriver.UX.Windows.Bindings
         private TypeDropDown<IBinding> bindingTypeDropDown;
         private PluginSettingStoreEditor<IBinding> settingStoreEditor = new PluginSettingStoreEditor<IBinding>();
 
-        private void ClearBinding(object sender, EventArgs e)
+        private void ClearBinding(object? sender, EventArgs e)
         {
             Close(null);
         }
 
-        private void ApplyBinding(object sender, EventArgs e)
+        private void ApplyBinding(object? sender, EventArgs e)
         {
             if (bindingTypeDropDown.SelectedItem == null)
             {

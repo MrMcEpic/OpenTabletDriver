@@ -5,15 +5,12 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using System.Threading;
 using OpenTabletDriver.Devices.HidSharpBackend;
 using OpenTabletDriver.Interop;
 using OpenTabletDriver.Plugin;
 using OpenTabletDriver.Plugin.Components;
 using OpenTabletDriver.Plugin.Devices;
 using OpenTabletDriver.Plugin.Tablet;
-
-#nullable enable
 
 namespace OpenTabletDriver
 {
@@ -37,6 +34,8 @@ namespace OpenTabletDriver
         public ImmutableArray<InputDeviceTree> InputDevices => _inputDeviceTrees;
         public IEnumerable<TabletReference> Tablets => InputDevices.Select(c => c.CreateReference());
 
+        private Dictionary<IDeviceEndpoint, Dictionary<byte, string?>> DeviceStringCache = [];
+
         public IReportParser<IDeviceReport> GetReportParser(DeviceIdentifier identifier)
         {
             return _reportParserProvider.GetReportParser(identifier.ReportParser);
@@ -52,6 +51,8 @@ namespace OpenTabletDriver
         {
             lock (_detectSync)
             {
+                DeviceStringCache = []; // reset cache on redetect
+
                 bool success = false;
 
                 Log.Write("Detect", "Searching for tablets...");
@@ -170,33 +171,52 @@ namespace OpenTabletDriver
             return null;
         }
 
-        private IEnumerable<IDeviceEndpoint> GetMatchingDevices(TabletConfiguration configuration, DeviceIdentifier identifier)
+        private IDeviceEndpoint[] GetMatchingDevices(TabletConfiguration configuration, DeviceIdentifier identifier)
         {
-            return from device in CompositeDeviceHub.GetDevices()
+            return [.. from device in CompositeDeviceHub.GetDevices()
                    where identifier.VendorID == device.VendorID
                    where identifier.ProductID == device.ProductID
                    where device.CanOpen
                    where identifier.InputReportLength == null || identifier.InputReportLength == device.InputReportLength
                    where identifier.OutputReportLength == null || identifier.OutputReportLength == device.OutputReportLength
                    where identifier.FeatureReportLength == null || identifier.FeatureReportLength == device.FeatureReportLength
-                   where DeviceMatchesStrings(device, identifier.DeviceStrings)
+                   where DeviceMatchesStrings(device, identifier.DeviceStrings, DeviceStringCache)
                    where DeviceMatchesAttribute(device, identifier.Attributes, configuration.Attributes)
-                   select device;
+                   select device];
         }
 
-        private static bool DeviceMatchesStrings(IDeviceEndpoint device, Dictionary<byte, string>? deviceStrings)
+        private static bool DeviceMatchesStrings(IDeviceEndpoint device, Dictionary<byte, string>? deviceStrings, Dictionary<IDeviceEndpoint, Dictionary<byte, string?>> stringCache)
         {
             if (deviceStrings == null || deviceStrings.Count == 0)
                 return true;
 
+            // Iterate through each device string, if one doesn't match then its the wrong configuration.
             foreach (var matchQuery in deviceStrings)
             {
                 try
                 {
-                    // Iterate through each device string, if one doesn't match then its the wrong configuration.
-                    var input = device.GetDeviceString(matchQuery.Key);
+                    string? deviceString = null;
+                    if (stringCache.TryGetValue(device, out var deviceCachedStrings) && deviceCachedStrings.TryGetValue(matchQuery.Key, out var cacheDeviceString))
+                    {
+                        if (cacheDeviceString == null)
+                        {
+                            Log.Write("Detect", $"Cached null for index {matchQuery.Key}, skipping", LogLevel.Debug);
+                            return false;
+                        }
+                        deviceString = cacheDeviceString;
+                    }
+
+                    deviceString ??= device.GetDeviceString(matchQuery.Key);
+
+                    if (!stringCache.TryAdd(device, new Dictionary<byte, string?> { { matchQuery.Key, deviceString } }))
+                        stringCache[device].TryAdd(matchQuery.Key, deviceString);
+
+                    // nullcheck after cache update to ensure nulls are cached
+                    if (deviceString == null)
+                        throw new IOException($"Unable to look up string index {matchQuery.Key}");
+
                     var pattern = matchQuery.Value;
-                    if (!Regex.IsMatch(input, pattern))
+                    if (!Regex.IsMatch(deviceString, pattern))
                         return false;
                 }
                 catch (Exception ex)
@@ -230,24 +250,20 @@ namespace OpenTabletDriver
                 }
             }
 
-            var device_attributes = device.DeviceAttributes;
-            if (device_attributes != null)
+            if (attributes.TryGetValue("HidReports", out var hidReports)
+                && device.DeviceAttributes.TryGetValue("HID_REPORTS", out var usbHidReports)
+                && !Regex.IsMatch(usbHidReports, hidReports))
             {
-                return matchInterface(attributes, device_attributes);
+                return false; // HidReports specified and no HID Reports match.
             }
 
-            return true;
+            if (!attributes.TryGetValue("Interface", out var identifierInterface))
+                return true; // No interface specified, match.
 
-            static bool matchInterface(Dictionary<string, string> identifierAttributes, IDictionary<string, string> deviceAttributes)
-            {
-                if (!identifierAttributes.TryGetValue("Interface", out var identifierInterface))
-                    return true; // No interface specified, match.
+            if (!device.DeviceAttributes.TryGetValue("USB_INTERFACE_NUMBER", out var usbInterface))
+                return false; // Device doesn't have an interface number, not a match.
 
-                if (!deviceAttributes.TryGetValue("USB_INTERFACE_NUMBER", out var usbInterface))
-                    return false; // Device doesn't have an interface number, not a match.
-
-                return identifierInterface == usbInterface;
-            }
+            return identifierInterface == usbInterface;
         }
 
         private static void DisposeDevices(ImmutableArray<InputDeviceTree> trees)
