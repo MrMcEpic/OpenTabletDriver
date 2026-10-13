@@ -187,5 +187,52 @@ namespace OpenTabletDriver.Tests
             Assert.True(pointer.HasFlag(POINTER_FLAGS.FIRSTBUTTON));
             Assert.Equal(POINTER_BUTTON_CHANGE_TYPE.FIRSTBUTTON_DOWN, change);
         }
+
+        // Positions round to the nearest pixel instead of truncating toward zero,
+        // which matters on displays left of / above the primary (negative coords).
+        [Theory]
+        [InlineData(10.4f, 10)]
+        [InlineData(10.6f, 11)]
+        [InlineData(10.5f, 11)]
+        [InlineData(-0.4f, 0)]
+        [InlineData(-0.6f, -1)]
+        [InlineData(-1919.7f, -1920)]
+        public void ToPixel_RoundsToNearest(float value, int expected)
+        {
+            var point = WindowsInkPointerBase.ToPixel(new System.Numerics.Vector2(value, value));
+
+            Assert.Equal(expected, point.X);
+            Assert.Equal(expected, point.Y);
+        }
+
+        // Normalized barrel rotation maps onto Windows' 0-359 degree range, wrapping 1.0 back to 0.
+        [Theory]
+        [InlineData(0f, 0u)]
+        [InlineData(0.25f, 90u)]
+        [InlineData(0.5f, 180u)]
+        [InlineData(0.999f, 0u)]
+        [InlineData(1f, 0u)]
+        [InlineData(-0.1f, 0u)]
+        public void ToRotationDegrees_MapsPercentageToDegrees(float percentage, uint expected)
+        {
+            Assert.Equal(expected, WindowsInkPointerBase.ToRotationDegrees(percentage));
+        }
+
+        // Rotation is only advertised once the tablet has actually reported it.
+        [Fact]
+        public void BuildPenMask_WithoutRotation_OmitsRotation()
+        {
+            var mask = WindowsInkPointerBase.BuildPenMask(hasRotation: false);
+
+            Assert.Equal(PEN_MASK.PRESSURE | PEN_MASK.TILT_X | PEN_MASK.TILT_Y, mask);
+        }
+
+        [Fact]
+        public void BuildPenMask_WithRotation_IncludesRotation()
+        {
+            var mask = WindowsInkPointerBase.BuildPenMask(hasRotation: true);
+
+            Assert.Equal(PEN_MASK.PRESSURE | PEN_MASK.ROTATION | PEN_MASK.TILT_X | PEN_MASK.TILT_Y, mask);
+        }
     }
 }

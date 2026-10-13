@@ -17,6 +17,7 @@ namespace OpenTabletDriver.Desktop.Interop.Input
     public abstract class WindowsInkPointerBase :
         IPressureHandler,
         ITiltHandler,
+        IRotationHandler,
         IEraserHandler,
         IMouseButtonHandler,
         ISynchronousPointer,
@@ -36,6 +37,8 @@ namespace OpenTabletDriver.Desktop.Interop.Input
         protected Vector2 _position;
         private float _pressure;
         private Vector2 _tilt;
+        private uint _rotation;
+        private bool _hasRotation;
 
         private bool _reportEraser;
         private bool _manualEraser;
@@ -53,6 +56,12 @@ namespace OpenTabletDriver.Desktop.Interop.Input
         public void SetPressure(float percentage) => _pressure = percentage;
 
         public void SetTilt(Vector2 tilt) => _tilt = tilt;
+
+        public void SetRotation(float percentage)
+        {
+            _rotation = ToRotationDegrees(percentage);
+            _hasRotation = true;
+        }
 
         public void SetEraser(bool isEraser)
         {
@@ -155,28 +164,19 @@ namespace OpenTabletDriver.Desktop.Interop.Input
                         pointerId = 1,
                         frameId = _frameId++,
                         pointerFlags = pointerFlags,
-                        ptPixelLocation = new POINT((int)_position.X, (int)_position.Y),
+                        ptPixelLocation = ToPixel(_position),
                         ButtonChangeType = buttonChange
                     },
                     penFlags = penFlags,
-                    penMask = PEN_MASK.PRESSURE | PEN_MASK.TILT_X | PEN_MASK.TILT_Y,
+                    penMask = BuildPenMask(_hasRotation),
                     pressure = pressureScaled,
+                    rotation = _rotation,
                     tiltX = (int)_tilt.X,
                     tiltY = (int)_tilt.Y
                 }
             };
 
-            if (!Pointer.InjectSyntheticPointerInput(_device, ref info, 1))
-            {
-                if (!_injectErrorLogged)
-                {
-                    var err = Marshal.GetLastWin32Error();
-                    Log.Write(LogGroup,
-                        $"InjectSyntheticPointerInput failed (Win32 error {err}); further errors will be suppressed.",
-                        LogLevel.Error);
-                    _injectErrorLogged = true;
-                }
-            }
+            Inject(ref info);
 
             _isNew = false;
             _prevContact = _contact;
@@ -184,6 +184,41 @@ namespace OpenTabletDriver.Desktop.Interop.Input
             _prevInRange = _inRange;
             _prevEffectiveEraser = _effectiveEraser;
         }
+
+        private void Inject(ref POINTER_TYPE_INFO info)
+        {
+            if (Pointer.InjectSyntheticPointerInput(_device, ref info, 1) || _injectErrorLogged)
+                return;
+
+            var err = Marshal.GetLastWin32Error();
+            Log.Write(LogGroup,
+                $"InjectSyntheticPointerInput failed (Win32 error {err}); further errors will be suppressed.",
+                LogLevel.Error);
+            _injectErrorLogged = true;
+        }
+
+        /// <summary>
+        /// Rounds a virtual-screen position to the nearest pixel. Truncating would
+        /// bias toward zero, shifting negative coordinates (displays left of or
+        /// above the primary) by up to a pixel.
+        /// </summary>
+        public static POINT ToPixel(Vector2 position) => new POINT(
+            (int)MathF.Round(position.X, MidpointRounding.AwayFromZero),
+            (int)MathF.Round(position.Y, MidpointRounding.AwayFromZero));
+
+        /// <summary>
+        /// Maps normalized barrel rotation (0-1) onto Windows' 0-359 degree range.
+        /// </summary>
+        public static uint ToRotationDegrees(float percentage) =>
+            (uint)MathF.Round(Math.Clamp(percentage, 0f, 1f) * 360f) % 360;
+
+        /// <summary>
+        /// Rotation is only advertised once the tablet has reported it, so pens
+        /// without barrel rotation don't claim a fixed 0 degree orientation.
+        /// </summary>
+        public static PEN_MASK BuildPenMask(bool hasRotation) =>
+            PEN_MASK.PRESSURE | PEN_MASK.TILT_X | PEN_MASK.TILT_Y |
+            (hasRotation ? PEN_MASK.ROTATION : PEN_MASK.NONE);
 
         /// <summary>
         /// Pure derivation of pointer flags, pen flags, and button change type from pointer state.
@@ -267,14 +302,15 @@ namespace OpenTabletDriver.Desktop.Interop.Input
                             frameId = _frameId++,
                             // UPDATE alone (no INRANGE, no INCONTACT) ends the session.
                             pointerFlags = POINTER_FLAGS.PRIMARY | POINTER_FLAGS.UPDATE,
-                            ptPixelLocation = new POINT((int)_position.X, (int)_position.Y)
+                            ptPixelLocation = ToPixel(_position)
                         },
                         penFlags = _prevEffectiveEraser ? PEN_FLAGS.INVERTED : PEN_FLAGS.NONE,
-                        penMask = PEN_MASK.PRESSURE | PEN_MASK.TILT_X | PEN_MASK.TILT_Y
+                        penMask = BuildPenMask(_hasRotation),
+                        rotation = _rotation
                     }
                 };
 
-                Pointer.InjectSyntheticPointerInput(_device, ref transition, 1);
+                Inject(ref transition);
             }
 
             _prevInRange = false;
